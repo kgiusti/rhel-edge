@@ -1,0 +1,94 @@
+# A bootc image providing package and service parity with the deprecated
+# "edge-commit" image type.
+#
+# The RHEL for Edge image types are deprecated in RHEL 9 and are not available
+# in RHEL 10 or later releases. Image Mode (bootc) is the supported way to
+# compose ostree-based images going forward. This Containerfile replicates, as
+# close as possible, the curated RPM and service set shipped in the edge-commit
+# image type so that an existing edge deployment can be migrated in place via
+# "bootc switch" (performed by the edge-to-bootc.sh test).
+#
+# This image targets CentOS Stream 10. The first release of the edge-to-bootc
+# test covers CentOS x86_64 only.
+#
+# Note: the legacy iptables package does not exist in CentOS Stream 10, so
+# iptables-nft is installed instead; it provides the iptables binaries via
+# the nftables backend.
+#
+# Build (SELinux enforcing hosts such as the CI test VM need the extra flags):
+#   podman build -t localhost/edge-bootc:stream10 \
+#     --cap-add=all --security-opt label=type:container_runtime_t \
+#     --device /dev/fuse files/edge-bootc
+
+FROM quay.io/centos-bootc/centos-bootc:stream10 as builder
+
+RUN /usr/libexec/bootc-base-imagectl build-rootfs --manifest=minimal \
+    --install ModemManager \
+    --install NetworkManager \
+    --install NetworkManager-wifi \
+    --install NetworkManager-wwan \
+    --install audit \
+    --install chrony \
+    --install clevis \
+    --install clevis-dracut \
+    --install clevis-luks \
+    --install criu \
+    --install cryptsetup \
+    --install dmidecode \
+    --install dracut-config-generic \
+    --install firewalld \
+    --install fuse-overlayfs \
+    --install greenboot \
+    --install greenboot-default-health-checks \
+    --install go-fdo-client \
+    --install hostname \
+    --install iproute \
+    --install iptables-nft \
+    --install iputils \
+    --install linux-firmware \
+    --install less \
+    --install lvm2 \
+    --install openssh-server \
+    --install openssh-clients \
+    --install pinentry \
+    --install policycoreutils-python-utils \
+    --install rootfiles \
+    --install rpm-ostree \
+    --install rsync \
+    --install setools-console \
+    --install slirp4netns \
+    --install sos \
+    --install ssh-key-dir \
+    --install sudo \
+    --install tar \
+    --install tmux \
+    --install traceroute \
+    --install usbguard \
+    --install vim-minimal \
+    --install wpa_supplicant \
+    /target-rootfs
+
+# Note: cannot install ignition-edge due to its dependency on sgdisk, which is
+# not available in the base distribution. Fix pending upstream.
+# https://github.com/fedora-iot/ignition-edge/pull/11
+# https://redhat.atlassian.net/browse/RHEL-155118
+# --install ignition
+# --install ignition-edge
+
+# Create a new, empty image from scratch.
+FROM scratch
+# Copy the root file system built in the previous step into this image.
+COPY --from=builder /target-rootfs/ /
+
+# Apply customizations to the image.
+RUN <<EORUN
+set -xeuo pipefail
+bootc container lint
+EORUN
+
+# Define required labels for this bootc image to be recognized as such.
+LABEL containers.bootc 1
+LABEL ostree.bootable 1
+# Optional labels that only apply when running this image as a container. These keep the default entry point running under systemd.
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
