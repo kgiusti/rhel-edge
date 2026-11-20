@@ -134,6 +134,7 @@ Edge tests:
 | [`ostree-ami-image.sh`](ostree-ami-image.sh) | `edge-ami` (raw) | AMI deployed to AWS EC2 |
 | [`ostree-8-to-9.sh`](ostree-8-to-9.sh) | `edge-container` (OCI) | Upgrade from RHEL 8 / CS8 to RHEL 9 / CS9 |
 | [`ostree-9-to-9.sh`](ostree-9-to-9.sh) | `edge-container` (OCI) | Upgrade within RHEL 9 |
+| [`edge-to-bootc.sh`](edge-to-bootc.sh) | `edge-commit` → bootc image | In-place migration from a CentOS Stream 9 edge deployment to a CentOS Stream 10 bootc image via `bootc switch` |
 
 Fedora IoT tests:
 

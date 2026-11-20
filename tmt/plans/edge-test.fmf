@@ -167,6 +167,25 @@ provision:
     - when: distro == rhel-8-10
       enabled: false
 
+/edge-to-bootc:
+  summary: Test in-place migration from a CentOS Stream 9 edge deployment to a bootc image
+  description: |
+    Image type: edge-commit (OSTree repository tarball) migrated to a bootc image
+    Deployment method: Network boot (PXE) with kickstart, then in-place migration via bootc switch
+    Use case: Migrate an existing RHEL for Edge deployment to Image Mode (bootc).
+
+    Test intent: Verify that a CentOS Stream 9 edge-commit deployment can be migrated
+    in place to a CentOS Stream 10 bootc image built from files/edge-bootc/Containerfile,
+    and that the migrated system is healthy: deployment origin, running services,
+    and no UID/GID drift in the mutable filesystem.
+  environment+:
+    TEST_CASE: edge-to-bootc
+  adjust+:
+    - when: distro != cs-9
+      enabled: false
+    - when: arch != x86_64
+      enabled: false
+
 /edge-arm-ami-image:
   summary: Test AMI deployed to AWS EC2
   description: |

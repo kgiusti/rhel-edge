@@ -1,0 +1,108 @@
+---
+name: Run Edge to Bootc Migration Test on CS 9
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions: {}
+
+jobs:
+  pr-info:
+    permissions:
+      pull-requests: read
+    if: ${{ github.event.issue.pull_request &&
+            (endsWith(github.event.comment.body, '/test-edge-to-bootc')) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query author repository permissions
+        uses: octokit/request-action@b91aabaa861c777dcdb14e2387e30eddf04619ae # v3.0.0
+        id: user_permission
+        with:
+          route: GET /repos/${{ github.repository }}/collaborators/${{ github.event.sender.login }}/permission
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if user does have correct permissions
+        if: contains('admin write', fromJson(steps.user_permission.outputs.data).permission)
+        id: check_user_perm
+        run: |
+          echo "User '${{ github.event.sender.login }}' has permission '${{ fromJson(steps.user_permission.outputs.data).permission }}' allowed values: 'admin', 'write'"
+          echo "allowed_user=true" >> $GITHUB_OUTPUT
+
+      - name: Get information for pull request
+        uses: octokit/request-action@b91aabaa861c777dcdb14e2387e30eddf04619ae # v3.0.0
+        id: pr-api
+        with:
+          route: GET /repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    outputs:
+      allowed_user: ${{ steps.check_user_perm.outputs.allowed_user }}
+      sha: ${{ fromJson(steps.pr-api.outputs.data).head.sha }}
+      ref: ${{ fromJson(steps.pr-api.outputs.data).head.ref }}
+      repo_url: ${{ fromJson(steps.pr-api.outputs.data).head.repo.html_url }}
+      compose_id: ${{ fromJson(steps.pr-api.outputs.data).title }}
+
+  edge-to-bootc-cs-9-x86:
+    timeout-minutes: 360
+    needs: pr-info
+    if: ${{ needs.pr-info.outputs.allowed_user == 'true' && github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.pr-info.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Run the tests
+        timeout-minutes: 340
+        uses: sclorg/testing-farm-as-github-action@230555baceb860aa468d216f1822974836b965d1 # v4.3.1
+        with:
+          compose: CentOS-Stream-9
+          arch: x86_64
+          api_key: ${{ secrets.TF_API_KEY }}
+          git_url: ${{ needs.pr-info.outputs.repo_url }}
+          git_ref: ${{ needs.pr-info.outputs.ref }}
+          update_pull_request_status: true
+          pull_request_status_name: "edge-to-bootc-cs-9-x86"
+          tmt_context: "arch=x86_64;distro=cs-9"
+          tmt_plan_regex: edge-to-bootc
+          tf_scope: private
+          variables: "ARCH=x86_64"
+          pipeline_settings: '{"timeout": 330}'
+
+      - name: Send test results to Slack via webhook
+        if: ${{ always() }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            emoji=":white_check_mark:"
+          else
+            emoji=":x:"
+          fi
+
+          payload=$(jq -n \
+            --arg emoji "$emoji" \
+            --arg pr_number "${{ github.event.issue.number }}" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              text: "Testing Farm Results for Edge to Bootc Migration (CS 9)",
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "\($emoji) *edge-to-bootc | CS 9 -> CS 10 | PR #\($pr_number) |* <\($run_url)|Test Log>"
+                  }
+                }
+              ]
+            }')
+
+          curl -X POST -H 'Content-type: application/json' --data "$payload" ${{ secrets.SLACK_WEBHOOK_URL_RHEL_EDGE_CI }}

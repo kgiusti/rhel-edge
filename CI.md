@@ -44,9 +44,14 @@ Create a pull request and add a comment according to the following table:
 | `/test-rhel-9-5` | All RHEL 9.5 Edge tests |
 | `/test-rhel-9-6` | All RHEL 9.6 Edge tests |
 | `/test-cs9` | All CentOS Stream 9 Edge tests |
+| `/test-edge-to-bootc` | Edge to bootc in-place migration test on CentOS Stream 9 x86_64 |
 | `/test-f45-iot` | Fedora IoT 45 tests |
 | `/test-f46-iot` | Fedora IoT 46 tests |
 | `/test-fdo` | FDO client and server tests routed by compose (Go on RHEL 10.x, Rust on RHEL 9.x) |
+
+## Edge to bootc migration test
+
+The `/test-edge-to-bootc` comment runs `edge-to-bootc.sh` on a CentOS Stream 9 x86_64 VM. The test deploys an `edge-commit` image via PXE and kickstart, then migrates the system in place to a CentOS Stream 10 bootc image built from `files/edge-bootc/Containerfile` via `bootc switch`, and validates the migrated system (deployment origin, services, UID/GID drift). Unlike the compose-driven tests, it is not triggered by compose detection; run it manually on any pull request.
 
 ## AWS credentials and test timeouts
 

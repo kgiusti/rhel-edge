@@ -47,6 +47,8 @@ tmt/
 files/                    osbuild-composer repository JSON configs, one per distro version.
                           Consumed by setup.sh during provisioning.
   fdo/                    FDO server configuration files (used by FDO test scripts).
+  edge-bootc/             Containerfile for the CentOS Stream 10 bootc migration target
+                          image (used by edge-to-bootc.sh).
 compose/                  Compose ID tracking files. Managed by trigger-*.yml workflows,
                           do not edit manually.
 tools/                    Cloud resource cleanup utilities (used by CI workflows) and
@@ -70,6 +72,7 @@ The dispatcher `tmt/tests/test.sh` routes `TEST_CASE` values to scripts:
 | `edge-ignition`              | `ostree-ignition.sh`              |
 | `edge-8to9`                  | `ostree-8-to-9.sh`                |
 | `edge-9to9`                  | `ostree-9-to-9.sh`                |
+| `edge-to-bootc`              | `edge-to-bootc.sh`                |
 | `iot-installer`              | `iot-installer.sh`                |
 | `iot-simplified-installer`   | `iot-simplified-installer.sh`     |
 | `iot-raw-image`              | `iot-raw-image.sh`                |
